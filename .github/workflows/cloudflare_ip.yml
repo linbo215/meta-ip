@@ -27,8 +27,8 @@ jobs:
       - name: Run Extract Script
         run: |
           echo "📡 开始抓取并清洗 Cloudflare 优质 IP 表格..."
-          if [ -f "py/process_cf_ip.py" ]; then
-            python py/process_cf_ip.py
+          if [ -f "process_cf_ip.py" ]; then
+            python process_cf_ip.py
           else
             echo "❌ 错误：找不到 py/process_cf_ip.py 脚本！"
             exit 1
