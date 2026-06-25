@@ -2,60 +2,55 @@ name: Cloudflare IP Auto Sync
 
 on:
   schedule:
-    # 每天固定在 02:00 和 14:00 触发（北京时间 10:00 和 22:00）
+    # 北京时间每天 10:00 和 22:00 自动运行
     - cron: '0 2,14 * * *'
-  workflow_dispatch: # 支持随时手动点击运行
+  workflow_dispatch: # 支持你在网页上随时手动点击运行
 
 jobs:
   sync_ip:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. 正常的拉取当前仓库代码
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # 2. 正常的初始化 Python 环境
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
+      # 3. 安装脚本需要的 requests 依赖
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install requests
 
+      # 4. 纯粹地运行你的脚本，生成 cf_ips.txt
       - name: Run Extract Script
         run: |
           echo "📡 开始执行独立清洗..."
           python process_cf_ip.py
 
-      - name: 🚀 纯 Git 命令：安全强推到你的私有库
-        env:
-          # 显式引入密钥
-          MY_TOKEN: ${{ secrets.LIVE_TOKEN }}
+      # 5. 把生成的 cf_ips.txt 保存回当前 meta-ip 仓库中
+      - name: Save Result to Repository
         run: |
-          echo "📥 正在初始化独立的 Git 提交环境..."
-          
-          # 1. 配置临时机器人身份
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 2. 销毁当前库的克隆历史，防止跨库提交污染
-          rm -rf .git
-          
-          # 3. 重新建立一个纯净无污染的本地单文件分支
-          git init
-          git branch -M main
-          
-          # 4. 只把刚才洗好的结果文件加进来
+          # 检查文件是否存在并添加
           if [ -f "cf_ips.txt" ]; then
             git add cf_ips.txt
+            
+            # 只有当内容真的发生改变时才提交，防止没有更新时报错
+            if git diff --staged --quiet; then
+              echo "ℹ️ 内容没有变化，跳过提交。"
+            else
+              git commit -m "📊 Cloudflare IP Auto Update [skip ci]"
+              git push origin main
+            fi
           else
-            echo "❌ 未检测到生成的文件，终止运行！"
+            echo "❌ 未检测到生成的文件！"
             exit 1
           fi
-          
-          git commit -m "📊 Cloudflare IP Sync (Independent) [skip ci]"
-          
-          # 5. 【核心修复】：使用标准的 x-access-token 嵌入格式进行强推，彻底解决 128 鉴权错误
-          git push --force https://x-access-token:${{ secrets.LIVE_TOKEN }}@github.com/linbo215/ken.git main
