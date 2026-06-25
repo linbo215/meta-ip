@@ -1,17 +1,17 @@
-name: Cloudflare IP Daily Refresh
+name: Cloudflare IP Auto Sync
 
 on:
   schedule:
-    # 每天固定在 02:00 和 14:00 触发（UTC 时间 18:00 和 06:00）
-    - cron: '0 6,18 * * *'
-  workflow_dispatch: # 支持手动点击运行
+    # 每天固定在 02:00 和 14:00 触发（北京时间 10:00 和 22:00）
+    - cron: '0 2,14 * * *'
+  workflow_dispatch: # 支持随时手动点击运行
 
 jobs:
-  extract_ip:
+  sync_ip:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Public Repo
+      - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Setup Python
@@ -26,41 +26,36 @@ jobs:
 
       - name: Run Extract Script
         run: |
-          echo "📡 开始抓取并清洗 Cloudflare 优质 IP 表格..."
-          if [ -f "process_cf_ip.py" ]; then
-            python process_cf_ip.py
-          else
-            echo "❌ 错误：找不到 py/process_cf_ip.py 脚本！"
-            exit 1
-          fi
+          echo "📡 开始执行独立清洗..."
+          python process_cf_ip.py
 
-      - name: 🚀 纯 Git 命令：单独强推 CF IP 到私有库
+      - name: 🚀 纯 Git 命令：安全强推到你的私有库
         env:
-          LIVE_TOKEN: ${{ secrets.LIVE_TOKEN }}
+          # 显式引入密钥
+          MY_TOKEN: ${{ secrets.LIVE_TOKEN }}
         run: |
-          echo "📥 准备独立推送 cf_ips.txt..."
+          echo "📥 正在初始化独立的 Git 提交环境..."
           
-          # 1. 配置临时 Git 机器人身份
+          # 1. 配置临时机器人身份
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 2. 强行清除当前的本地 Git 历史缓存，防止跨库历史冲突
+          # 2. 销毁当前库的克隆历史，防止跨库提交污染
           rm -rf .git
           
-          # 3. 重新初始化一个干净的本地 Git
+          # 3. 重新建立一个纯净无污染的本地单文件分支
           git init
           git branch -M main
           
-          # 4. 【核心区别】：这里只添加独立生成的 cf_ips.txt，绝不包含任何酒店源文件
+          # 4. 只把刚才洗好的结果文件加进来
           if [ -f "cf_ips.txt" ]; then
             git add cf_ips.txt
           else
-            echo "❌ 错误：未找到生成的 cf_ips.txt 文件，终止推送！"
+            echo "❌ 未检测到生成的文件，终止运行！"
             exit 1
           fi
           
-          # 5. 提交
-          git commit -m "📊 Cloudflare IP Refresh (Independent) [skip ci]"
+          git commit -m "📊 Cloudflare IP Sync (Independent) [skip ci]"
           
-          # 6. 带上 Token 强推到私库（注意：由于使用了 --force，私库中如果原本有这个文件会被直接覆盖更新）
-          git push --force https://${{ secrets.LIVE_TOKEN }}@github.com/linbo215/ken.git main
+          # 5. 【核心修复】：使用标准的 x-access-token 嵌入格式进行强推，彻底解决 128 鉴权错误
+          git push --force https://x-access-token:${{ secrets.LIVE_TOKEN }}@github.com/linbo215/ken.git main
