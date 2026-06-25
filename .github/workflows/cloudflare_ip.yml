@@ -9,6 +9,10 @@ on:
 jobs:
   sync_ip:
     runs-on: ubuntu-latest
+    
+    # 💡 核心：必须赋予当前工作流对本仓库的写入权限
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Code
@@ -26,28 +30,18 @@ jobs:
 
       - name: Run Extract Script
         run: |
-          echo "📡 开始执行独立清洗..."
+          echo "📡 开始执行表格清洗..."
           python process_cf_ip.py
 
-      - name: 🚀 纯 Git 命令：安全强推到你的私有库
-        env:
-          # 显式引入密钥
-          MY_TOKEN: ${{ secrets.LIVE_TOKEN }}
+      - name: 🚀 自动提交并更新文件到本仓库
         run: |
-          echo "📥 正在初始化独立的 Git 提交环境..."
+          echo "📥 正在检查文件变更并提交到 meta-ip 仓库..."
           
           # 1. 配置临时机器人身份
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
-          # 2. 销毁当前库的克隆历史，防止跨库提交污染
-          rm -rf .git
-          
-          # 3. 重新建立一个纯净无污染的本地单文件分支
-          git init
-          git branch -M main
-          
-          # 4. 只把刚才洗好的结果文件加进来
+          # 2. 正常添加生成的文件
           if [ -f "cf_ips.txt" ]; then
             git add cf_ips.txt
           else
@@ -55,7 +49,6 @@ jobs:
             exit 1
           fi
           
-          git commit -m "📊 Cloudflare IP Sync (Independent) [skip ci]"
-          
-          # 5. 【核心修复】：使用标准的 x-access-token 嵌入格式进行强推，彻底解决 128 鉴权错误
-          git push --force https://x-access-token:${{ secrets.LIVE_TOKEN }}@github.com/linbo215/ken.git main
+          # 3. 检查是否有内容变动，有则提交，无则跳过（防止没有新 IP 时工作流报错）
+          if git diff --staged --quiet; then
+            echo "📊 今日
