@@ -1,7 +1,7 @@
 import csv
 import requests
 
-# 目标：GitHub 上别人公开的优秀 CF IP 数据
+# 目标远程公开 CSV
 CSV_URL = "https://raw.githubusercontent.com/xgonce/Cloudflare_IP/refs/heads/main/result.csv"
 OUTPUT_FILE = "cf_ips.txt"
 
@@ -35,8 +35,8 @@ def download_and_parse():
             if "IP" in ip or not ip:
                 continue
             
-            # 格式化输出: IP:端口#归属国(小写)
-            formatted_line = f"{ip}:{port}#{country.lower()}"
+            # 💡【核心修改】：转换为指定格式，并将归属国全部转换为纯大写 (.upper())
+            formatted_line = f"{ip}:{port}#{country.upper()}"
             results.append(formatted_line)
             
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
